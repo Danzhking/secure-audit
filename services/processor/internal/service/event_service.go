@@ -27,8 +27,12 @@ func (s *EventService) ProcessMessages(msgs <-chan amqp.Delivery) {
 			continue
 		}
 
-		log.Printf("Processing event: service=%s type=%s user=%s ip=%s",
-			event.Service, event.EventType, event.UserID, event.IP)
+		if !event.Severity.IsValid() {
+			event.Severity = model.SeverityLow
+		}
+
+		log.Printf("Processing event: service=%s type=%s severity=%s user=%s ip=%s",
+			event.Service, event.EventType, event.Severity, event.UserID, event.IP)
 
 		if err := s.repo.Save(event); err != nil {
 			log.Printf("Failed to save event: %v", err)
@@ -37,6 +41,6 @@ func (s *EventService) ProcessMessages(msgs <-chan amqp.Delivery) {
 		}
 
 		msg.Ack(false)
-		log.Printf("Event saved successfully: %s/%s", event.Service, event.EventType)
+		log.Printf("Event saved: %s/%s [%s]", event.Service, event.EventType, event.Severity)
 	}
 }
