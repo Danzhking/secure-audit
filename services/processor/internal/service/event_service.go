@@ -4,17 +4,22 @@ import (
 	"encoding/json"
 	"log"
 
+	"github.com/Danzhking/secure-audit/services/processor/internal/detection"
 	"github.com/Danzhking/secure-audit/services/processor/internal/model"
 	"github.com/Danzhking/secure-audit/services/processor/internal/repository"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type EventService struct {
-	repo *repository.EventRepository
+	repo   *repository.EventRepository
+	engine *detection.Engine
 }
 
-func NewEventService(repo *repository.EventRepository) *EventService {
-	return &EventService{repo: repo}
+func NewEventService(repo *repository.EventRepository, engine *detection.Engine) *EventService {
+	return &EventService{
+		repo:   repo,
+		engine: engine,
+	}
 }
 
 func (s *EventService) ProcessMessages(msgs <-chan amqp.Delivery) {
@@ -39,6 +44,8 @@ func (s *EventService) ProcessMessages(msgs <-chan amqp.Delivery) {
 			msg.Nack(false, true)
 			continue
 		}
+
+		s.engine.Analyze(event)
 
 		msg.Ack(false)
 		log.Printf("Event saved: %s/%s [%s]", event.Service, event.EventType, event.Severity)

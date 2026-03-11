@@ -69,3 +69,33 @@ func (r *EventRepository) Save(event model.Event) error {
 		metadata,
 	).Scan(&event.ID, &event.CreatedAt)
 }
+
+// CountFailedLoginsByUser returns the number of login_failed events
+// for a given user within the specified time window (in minutes).
+func (r *EventRepository) CountFailedLoginsByUser(userID string, windowMinutes int) (int, error) {
+	query := `
+		SELECT COUNT(*) FROM security_events
+		WHERE user_id = $1
+		AND event_type = 'login_failed'
+		AND created_at > NOW() - MAKE_INTERVAL(mins := $2)
+	`
+
+	var count int
+	err := r.db.QueryRow(query, userID, windowMinutes).Scan(&count)
+	return count, err
+}
+
+// CountFailedLoginsByIP returns the number of login_failed events
+// from a given IP targeting distinct users within the specified time window.
+func (r *EventRepository) CountFailedLoginsByIP(ip string, windowMinutes int) (int, error) {
+	query := `
+		SELECT COUNT(DISTINCT user_id) FROM security_events
+		WHERE ip = $1
+		AND event_type = 'login_failed'
+		AND created_at > NOW() - MAKE_INTERVAL(mins := $2)
+	`
+
+	var count int
+	err := r.db.QueryRow(query, ip, windowMinutes).Scan(&count)
+	return count, err
+}

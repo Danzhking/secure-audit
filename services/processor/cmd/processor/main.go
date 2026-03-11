@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	"github.com/Danzhking/secure-audit/services/processor/internal/config"
+	"github.com/Danzhking/secure-audit/services/processor/internal/detection"
 	"github.com/Danzhking/secure-audit/services/processor/internal/queue"
 	"github.com/Danzhking/secure-audit/services/processor/internal/repository"
 	"github.com/Danzhking/secure-audit/services/processor/internal/service"
@@ -18,10 +19,21 @@ func main() {
 	db := repository.ConnectPostgres(cfg.PostgresURL)
 	defer db.Close()
 
-	repo := repository.NewEventRepository(db)
-	if err := repo.Migrate(); err != nil {
-		log.Fatal("Migration failed:", err)
+	eventRepo := repository.NewEventRepository(db)
+	if err := eventRepo.Migrate(); err != nil {
+		log.Fatal("Events migration failed:", err)
 	}
+
+	alertRepo := repository.NewAlertRepository(db)
+	if err := alertRepo.Migrate(); err != nil {
+		log.Fatal("Alerts migration failed:", err)
+	}
+
+	engine := detection.NewEngine(
+		alertRepo,
+		detection.NewBruteForceRule(eventRepo),
+		detection.NewSuspiciousIPRule(eventRepo),
+	)
 
 	conn := queue.ConnectRabbitMQ(cfg.RabbitURL)
 	defer conn.Close()
@@ -37,7 +49,7 @@ func main() {
 		log.Fatal("Failed to start consuming:", err)
 	}
 
-	eventService := service.NewEventService(repo)
+	eventService := service.NewEventService(eventRepo, engine)
 
 	go eventService.ProcessMessages(msgs)
 
