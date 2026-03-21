@@ -11,7 +11,7 @@ func ConnectRabbitMQ(url string) *amqp.Connection {
 	var conn *amqp.Connection
 	var err error
 
-	for i := range 10 {
+	for i := range 15 {
 		conn, err = amqp.Dial(url)
 		if err == nil {
 			zap.L().Info("RabbitMQ connected")
@@ -21,9 +21,9 @@ func ConnectRabbitMQ(url string) *amqp.Connection {
 			zap.Int("attempt", i+1),
 			zap.Error(err),
 		)
-		time.Sleep(2 * time.Second)
+		time.Sleep(3 * time.Second)
 	}
 
-	zap.L().Fatal("RabbitMQ connection failed after 10 attempts", zap.Error(err))
+	zap.L().Fatal("RabbitMQ connection failed after 15 attempts", zap.Error(err))
 	return nil
 }

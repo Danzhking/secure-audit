@@ -7,3 +7,6 @@ tmp/
 *.log
 
 vendor/
+
+certs/server.key
+certs/server.crt

@@ -40,6 +40,16 @@ func main() {
 		eventHandler.CreateEvent,
 	)
 
-	zap.L().Info("Collector started", zap.String("port", cfg.Port))
-	r.Run(cfg.Port)
+	if cfg.TLSEnabled() {
+		zap.L().Info("Collector started with TLS",
+			zap.String("port", cfg.TLSPort),
+			zap.String("cert", cfg.TLSCert),
+		)
+		if err := r.RunTLS(cfg.TLSPort, cfg.TLSCert, cfg.TLSKey); err != nil {
+			zap.L().Fatal("Failed to start TLS server", zap.Error(err))
+		}
+	} else {
+		zap.L().Info("Collector started (no TLS)", zap.String("port", cfg.Port))
+		r.Run(cfg.Port)
+	}
 }
