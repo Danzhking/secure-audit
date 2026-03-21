@@ -2,12 +2,12 @@ package service
 
 import (
 	"encoding/json"
-	"log"
 
 	"github.com/Danzhking/secure-audit/services/processor/internal/detection"
 	"github.com/Danzhking/secure-audit/services/processor/internal/model"
 	"github.com/Danzhking/secure-audit/services/processor/internal/repository"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"go.uber.org/zap"
 )
 
 type EventService struct {
@@ -27,7 +27,7 @@ func (s *EventService) ProcessMessages(msgs <-chan amqp.Delivery) {
 		var event model.Event
 
 		if err := json.Unmarshal(msg.Body, &event); err != nil {
-			log.Printf("Failed to unmarshal message: %v", err)
+			zap.L().Error("Failed to unmarshal message", zap.Error(err))
 			msg.Nack(false, false)
 			continue
 		}
@@ -36,11 +36,16 @@ func (s *EventService) ProcessMessages(msgs <-chan amqp.Delivery) {
 			event.Severity = model.SeverityLow
 		}
 
-		log.Printf("Processing event: service=%s type=%s severity=%s user=%s ip=%s",
-			event.Service, event.EventType, event.Severity, event.UserID, event.IP)
+		zap.L().Info("Processing event",
+			zap.String("event_service", event.Service),
+			zap.String("event_type", event.EventType),
+			zap.String("severity", string(event.Severity)),
+			zap.String("user_id", event.UserID),
+			zap.String("ip", event.IP),
+		)
 
 		if err := s.repo.Save(event); err != nil {
-			log.Printf("Failed to save event: %v", err)
+			zap.L().Error("Failed to save event", zap.Error(err))
 			msg.Nack(false, true)
 			continue
 		}
@@ -48,6 +53,10 @@ func (s *EventService) ProcessMessages(msgs <-chan amqp.Delivery) {
 		s.engine.Analyze(event)
 
 		msg.Ack(false)
-		log.Printf("Event saved: %s/%s [%s]", event.Service, event.EventType, event.Severity)
+		zap.L().Info("Event saved",
+			zap.String("event_service", event.Service),
+			zap.String("event_type", event.EventType),
+			zap.String("severity", string(event.Severity)),
+		)
 	}
 }

@@ -2,9 +2,9 @@ package repository
 
 import (
 	"database/sql"
-	"log"
 
 	"github.com/Danzhking/secure-audit/services/processor/internal/model"
+	"go.uber.org/zap"
 )
 
 type EventRepository struct {
@@ -44,7 +44,7 @@ func (r *EventRepository) Migrate() error {
 		return err
 	}
 
-	log.Println("Database migration completed")
+	zap.L().Info("Database migration completed")
 	return nil
 }
 
@@ -70,8 +70,6 @@ func (r *EventRepository) Save(event model.Event) error {
 	).Scan(&event.ID, &event.CreatedAt)
 }
 
-// CountFailedLoginsByUser returns the number of login_failed events
-// for a given user within the specified time window (in minutes).
 func (r *EventRepository) CountFailedLoginsByUser(userID string, windowMinutes int) (int, error) {
 	query := `
 		SELECT COUNT(*) FROM security_events
@@ -85,8 +83,6 @@ func (r *EventRepository) CountFailedLoginsByUser(userID string, windowMinutes i
 	return count, err
 }
 
-// CountFailedLoginsByIP returns the number of login_failed events
-// from a given IP targeting distinct users within the specified time window.
 func (r *EventRepository) CountFailedLoginsByIP(ip string, windowMinutes int) (int, error) {
 	query := `
 		SELECT COUNT(DISTINCT user_id) FROM security_events

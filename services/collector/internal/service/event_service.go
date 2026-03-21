@@ -1,10 +1,9 @@
 package service
 
 import (
-	"log"
-
 	"github.com/Danzhking/secure-audit/services/collector/internal/model"
 	"github.com/Danzhking/secure-audit/services/collector/internal/queue"
+	"go.uber.org/zap"
 )
 
 type EventService struct {
@@ -18,7 +17,11 @@ func NewEventService(p *queue.Publisher) *EventService {
 }
 
 func (s *EventService) ProcessEvent(event model.Event) error {
-
-	log.Println("Processing event:", event.EventType)
+	zap.L().Info("Processing event",
+		zap.String("event_type", event.EventType),
+		zap.String("event_service", event.Service),
+		zap.String("user_id", event.UserID),
+		zap.String("ip", event.IP),
+	)
 	return s.publisher.Publish(event)
 }

@@ -1,9 +1,8 @@
 package queue
 
 import (
-	"log"
-
 	amqp "github.com/rabbitmq/amqp091-go"
+	"go.uber.org/zap"
 )
 
 type Consumer struct {
@@ -33,7 +32,7 @@ func NewConsumer(conn *amqp.Connection) (*Consumer, error) {
 		return nil, err
 	}
 
-	log.Println("Consumer queue declared:", q.Name)
+	zap.L().Info("Consumer queue declared", zap.String("queue", q.Name))
 
 	return &Consumer{
 		channel: ch,
@@ -45,7 +44,7 @@ func (c *Consumer) Consume() (<-chan amqp.Delivery, error) {
 	msgs, err := c.channel.Consume(
 		c.queue.Name,
 		"",
-		false, // manual ack
+		false,
 		false,
 		false,
 		false,
@@ -55,7 +54,7 @@ func (c *Consumer) Consume() (<-chan amqp.Delivery, error) {
 		return nil, err
 	}
 
-	log.Println("Waiting for messages on queue:", c.queue.Name)
+	zap.L().Info("Waiting for messages", zap.String("queue", c.queue.Name))
 	return msgs, nil
 }
 

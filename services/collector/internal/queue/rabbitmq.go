@@ -1,19 +1,16 @@
 package queue
 
 import (
-	"log"
-
 	amqp "github.com/rabbitmq/amqp091-go"
+	"go.uber.org/zap"
 )
 
 func ConnectRabbitMQ(url string) *amqp.Connection {
-
 	conn, err := amqp.Dial(url)
 	if err != nil {
-		log.Fatal("RabbitMQ connection error:", err)
+		zap.L().Fatal("RabbitMQ connection error", zap.Error(err))
 	}
 
-	log.Println("RabbitMQ connected")
-
+	zap.L().Info("RabbitMQ connected")
 	return conn
 }

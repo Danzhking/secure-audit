@@ -2,10 +2,10 @@ package repository
 
 import (
 	"database/sql"
-	"log"
 	"time"
 
 	_ "github.com/lib/pq"
+	"go.uber.org/zap"
 )
 
 func ConnectPostgres(url string) *sql.DB {
@@ -16,14 +16,17 @@ func ConnectPostgres(url string) *sql.DB {
 		db, err = sql.Open("postgres", url)
 		if err == nil {
 			if pingErr := db.Ping(); pingErr == nil {
-				log.Println("PostgreSQL connected")
+				zap.L().Info("PostgreSQL connected")
 				return db
 			}
 		}
-		log.Printf("PostgreSQL not ready (attempt %d/10): %v", i+1, err)
+		zap.L().Warn("PostgreSQL not ready",
+			zap.Int("attempt", i+1),
+			zap.Error(err),
+		)
 		time.Sleep(2 * time.Second)
 	}
 
-	log.Fatal("PostgreSQL connection failed after 10 attempts:", err)
+	zap.L().Fatal("PostgreSQL connection failed after 10 attempts", zap.Error(err))
 	return nil
 }

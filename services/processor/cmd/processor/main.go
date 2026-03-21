@@ -1,19 +1,24 @@
 package main
 
 import (
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"go.uber.org/zap"
+
 	"github.com/Danzhking/secure-audit/services/processor/internal/config"
 	"github.com/Danzhking/secure-audit/services/processor/internal/detection"
+	"github.com/Danzhking/secure-audit/services/processor/internal/logger"
 	"github.com/Danzhking/secure-audit/services/processor/internal/queue"
 	"github.com/Danzhking/secure-audit/services/processor/internal/repository"
 	"github.com/Danzhking/secure-audit/services/processor/internal/service"
 )
 
 func main() {
+	logger.Init("processor")
+	defer zap.L().Sync()
+
 	cfg := config.Load()
 
 	db := repository.ConnectPostgres(cfg.PostgresURL)
@@ -21,12 +26,12 @@ func main() {
 
 	eventRepo := repository.NewEventRepository(db)
 	if err := eventRepo.Migrate(); err != nil {
-		log.Fatal("Events migration failed:", err)
+		zap.L().Fatal("Events migration failed", zap.Error(err))
 	}
 
 	alertRepo := repository.NewAlertRepository(db)
 	if err := alertRepo.Migrate(); err != nil {
-		log.Fatal("Alerts migration failed:", err)
+		zap.L().Fatal("Alerts migration failed", zap.Error(err))
 	}
 
 	engine := detection.NewEngine(
@@ -40,24 +45,24 @@ func main() {
 
 	consumer, err := queue.NewConsumer(conn)
 	if err != nil {
-		log.Fatal("Failed to create consumer:", err)
+		zap.L().Fatal("Failed to create consumer", zap.Error(err))
 	}
 	defer consumer.Close()
 
 	msgs, err := consumer.Consume()
 	if err != nil {
-		log.Fatal("Failed to start consuming:", err)
+		zap.L().Fatal("Failed to start consuming", zap.Error(err))
 	}
 
 	eventService := service.NewEventService(eventRepo, engine)
 
 	go eventService.ProcessMessages(msgs)
 
-	log.Println("Processor started. Waiting for events...")
+	zap.L().Info("Processor started, waiting for events")
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
 
-	log.Println("Processor shutting down...")
+	zap.L().Info("Processor shutting down")
 }

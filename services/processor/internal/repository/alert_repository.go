@@ -2,9 +2,9 @@ package repository
 
 import (
 	"database/sql"
-	"log"
 
 	"github.com/Danzhking/secure-audit/services/processor/internal/model"
+	"go.uber.org/zap"
 )
 
 type AlertRepository struct {
@@ -43,7 +43,7 @@ func (r *AlertRepository) Migrate() error {
 		return err
 	}
 
-	log.Println("Alerts migration completed")
+	zap.L().Info("Alerts migration completed")
 	return nil
 }
 

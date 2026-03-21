@@ -1,10 +1,10 @@
 package queue
 
 import (
-	"log"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+	"go.uber.org/zap"
 )
 
 func ConnectRabbitMQ(url string) *amqp.Connection {
@@ -14,13 +14,16 @@ func ConnectRabbitMQ(url string) *amqp.Connection {
 	for i := range 10 {
 		conn, err = amqp.Dial(url)
 		if err == nil {
-			log.Println("RabbitMQ connected")
+			zap.L().Info("RabbitMQ connected")
 			return conn
 		}
-		log.Printf("RabbitMQ not ready (attempt %d/10): %v", i+1, err)
+		zap.L().Warn("RabbitMQ not ready",
+			zap.Int("attempt", i+1),
+			zap.Error(err),
+		)
 		time.Sleep(2 * time.Second)
 	}
 
-	log.Fatal("RabbitMQ connection failed after 10 attempts:", err)
+	zap.L().Fatal("RabbitMQ connection failed after 10 attempts", zap.Error(err))
 	return nil
 }

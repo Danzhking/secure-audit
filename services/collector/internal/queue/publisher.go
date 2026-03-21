@@ -2,9 +2,9 @@ package queue
 
 import (
 	"encoding/json"
-	"log"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+	"go.uber.org/zap"
 )
 
 type Publisher struct {
@@ -13,13 +13,10 @@ type Publisher struct {
 }
 
 func NewPublisher(conn *amqp.Connection) (*Publisher, error) {
-
 	ch, err := conn.Channel()
 	if err != nil {
 		return nil, err
 	}
-
-	log.Println("Creating queue security_events")
 
 	q, err := ch.QueueDeclare(
 		"security_events",
@@ -29,13 +26,12 @@ func NewPublisher(conn *amqp.Connection) (*Publisher, error) {
 		false,
 		nil,
 	)
-
 	if err != nil {
-		log.Println("Queue declare error:", err)
+		zap.L().Error("Queue declare error", zap.Error(err))
 		return nil, err
 	}
 
-	log.Println("Queue created:", q.Name)
+	zap.L().Info("Queue declared", zap.String("queue", q.Name))
 
 	return &Publisher{
 		channel: ch,
@@ -44,9 +40,6 @@ func NewPublisher(conn *amqp.Connection) (*Publisher, error) {
 }
 
 func (p *Publisher) Publish(event interface{}) error {
-
-	log.Println("Publishing event...")
-
 	body, err := json.Marshal(event)
 	if err != nil {
 		return err
@@ -62,13 +55,11 @@ func (p *Publisher) Publish(event interface{}) error {
 			Body:        body,
 		},
 	)
-
 	if err != nil {
-		log.Println("RabbitMQ publish error:", err)
+		zap.L().Error("RabbitMQ publish error", zap.Error(err))
 		return err
 	}
 
-	log.Println("Event successfully published")
-
+	zap.L().Debug("Event published", zap.String("queue", p.queue.Name))
 	return nil
 }

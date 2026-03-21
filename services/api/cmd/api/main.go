@@ -1,16 +1,19 @@
 package main
 
 import (
-	"log"
-
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
 	"github.com/Danzhking/secure-audit/services/api/internal/config"
 	"github.com/Danzhking/secure-audit/services/api/internal/handler"
+	"github.com/Danzhking/secure-audit/services/api/internal/logger"
 	"github.com/Danzhking/secure-audit/services/api/internal/repository"
 )
 
 func main() {
+	logger.Init("api")
+	defer zap.L().Sync()
+
 	cfg := config.Load()
 
 	db := repository.ConnectPostgres(cfg.PostgresURL)
@@ -37,6 +40,6 @@ func main() {
 		api.GET("/stats", statsHandler.GetStats)
 	}
 
-	log.Printf("API service started on %s", cfg.Port)
+	zap.L().Info("API service started", zap.String("port", cfg.Port))
 	r.Run(cfg.Port)
 }
