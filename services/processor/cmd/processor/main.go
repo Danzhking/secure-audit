@@ -1,10 +1,12 @@
 package main
 
 import (
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 
 	"github.com/Danzhking/secure-audit/services/processor/internal/config"
@@ -55,6 +57,16 @@ func main() {
 	}
 
 	eventService := service.NewEventService(eventRepo, engine)
+
+	// Prometheus metrics
+	go func() {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.Handler())
+		zap.L().Info("Metrics server started", zap.String("port", ":9091"))
+		if err := http.ListenAndServe(":9091", mux); err != nil {
+			zap.L().Error("Metrics server failed", zap.Error(err))
+		}
+	}()
 
 	go eventService.ProcessMessages(msgs)
 

@@ -1,7 +1,10 @@
 package main
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 
 	"github.com/Danzhking/secure-audit/services/collector/internal/config"
@@ -30,6 +33,16 @@ func main() {
 	eventHandler := handler.NewEventHandler(eventService)
 
 	rateLimiter := middleware.NewRateLimiter(10, 20)
+
+	// Prometheus metrics on separate HTTP port (no TLS, no auth)
+	go func() {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.Handler())
+		zap.L().Info("Metrics server started", zap.String("port", ":9090"))
+		if err := http.ListenAndServe(":9090", mux); err != nil {
+			zap.L().Error("Metrics server failed", zap.Error(err))
+		}
+	}()
 
 	r := gin.Default()
 

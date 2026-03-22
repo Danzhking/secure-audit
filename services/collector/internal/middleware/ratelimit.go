@@ -7,6 +7,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/time/rate"
+
+	"github.com/Danzhking/secure-audit/services/collector/internal/metrics"
 )
 
 type ipLimiter struct {
@@ -65,6 +67,7 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 		limiter := rl.getLimiter(ip)
 
 		if !limiter.Allow() {
+			metrics.RateLimitRejected.Inc()
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
 				"error": "rate limit exceeded",
 			})

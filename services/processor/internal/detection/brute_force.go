@@ -4,20 +4,22 @@ import (
 	"fmt"
 
 	"github.com/Danzhking/secure-audit/services/processor/internal/model"
-	"github.com/Danzhking/secure-audit/services/processor/internal/repository"
 )
 
-// BruteForceRule detects multiple failed login attempts from the same user.
-// Triggers when a user has >= Threshold failed logins within WindowMinutes.
+type EventCounter interface {
+	CountFailedLoginsByUser(userID string, windowMinutes int) (int, error)
+	CountFailedLoginsByIP(ip string, windowMinutes int) (int, error)
+}
+
 type BruteForceRule struct {
-	eventRepo     *repository.EventRepository
+	counter       EventCounter
 	Threshold     int
 	WindowMinutes int
 }
 
-func NewBruteForceRule(eventRepo *repository.EventRepository) *BruteForceRule {
+func NewBruteForceRule(counter EventCounter) *BruteForceRule {
 	return &BruteForceRule{
-		eventRepo:     eventRepo,
+		counter:       counter,
 		Threshold:     5,
 		WindowMinutes: 10,
 	}
@@ -32,7 +34,7 @@ func (r *BruteForceRule) Check(event model.Event) (*model.Alert, error) {
 		return nil, nil
 	}
 
-	count, err := r.eventRepo.CountFailedLoginsByUser(event.UserID, r.WindowMinutes)
+	count, err := r.counter.CountFailedLoginsByUser(event.UserID, r.WindowMinutes)
 	if err != nil {
 		return nil, fmt.Errorf("count failed logins: %w", err)
 	}

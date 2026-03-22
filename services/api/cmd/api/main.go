@@ -7,6 +7,7 @@ import (
 	"github.com/Danzhking/secure-audit/services/api/internal/config"
 	"github.com/Danzhking/secure-audit/services/api/internal/handler"
 	"github.com/Danzhking/secure-audit/services/api/internal/logger"
+	"github.com/Danzhking/secure-audit/services/api/internal/middleware"
 	"github.com/Danzhking/secure-audit/services/api/internal/repository"
 )
 
@@ -26,10 +27,15 @@ func main() {
 	eventHandler := handler.NewEventHandler(eventRepo)
 	alertHandler := handler.NewAlertHandler(alertRepo)
 	statsHandler := handler.NewStatsHandler(statsRepo)
+	authHandler := handler.NewAuthHandler(cfg.JWTSecret)
 
 	r := gin.Default()
 
+	r.POST("/auth/login", authHandler.Login)
+
 	api := r.Group("/api")
+	api.Use(middleware.JWTAuth(cfg.JWTSecret))
+	api.Use(middleware.AuditLog())
 	{
 		api.GET("/events", eventHandler.List)
 		api.GET("/events/:id", eventHandler.GetByID)

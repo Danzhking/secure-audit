@@ -4,21 +4,17 @@ import (
 	"fmt"
 
 	"github.com/Danzhking/secure-audit/services/processor/internal/model"
-	"github.com/Danzhking/secure-audit/services/processor/internal/repository"
 )
 
-// SuspiciousIPRule detects credential scanning — a single IP targeting
-// multiple distinct user accounts with failed logins.
-// Triggers when an IP has failed logins against >= Threshold different users within WindowMinutes.
 type SuspiciousIPRule struct {
-	eventRepo     *repository.EventRepository
+	counter       EventCounter
 	Threshold     int
 	WindowMinutes int
 }
 
-func NewSuspiciousIPRule(eventRepo *repository.EventRepository) *SuspiciousIPRule {
+func NewSuspiciousIPRule(counter EventCounter) *SuspiciousIPRule {
 	return &SuspiciousIPRule{
-		eventRepo:     eventRepo,
+		counter:       counter,
 		Threshold:     3,
 		WindowMinutes: 5,
 	}
@@ -33,7 +29,7 @@ func (r *SuspiciousIPRule) Check(event model.Event) (*model.Alert, error) {
 		return nil, nil
 	}
 
-	distinctUsers, err := r.eventRepo.CountFailedLoginsByIP(event.IP, r.WindowMinutes)
+	distinctUsers, err := r.counter.CountFailedLoginsByIP(event.IP, r.WindowMinutes)
 	if err != nil {
 		return nil, fmt.Errorf("count failed logins by IP: %w", err)
 	}

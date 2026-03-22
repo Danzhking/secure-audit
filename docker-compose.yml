@@ -3,16 +3,22 @@ services:
   postgres:
     image: postgres:16
     container_name: secure_audit_postgres
+    command: >
+      postgres
+      -c ssl=on
+      -c ssl_cert_file=/var/lib/postgresql/data/server.crt
+      -c ssl_key_file=/var/lib/postgresql/data/server.key
     environment:
-      POSTGRES_USER: audit
-      POSTGRES_PASSWORD: auditpass
-      POSTGRES_DB: auditdb
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./postgres/setup-ssl.sh:/docker-entrypoint-initdb.d/setup-ssl.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U audit -d auditdb"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -20,6 +26,9 @@ services:
   rabbitmq:
     image: rabbitmq:3-management
     container_name: secure_audit_rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -39,12 +48,13 @@ services:
     restart: on-failure
     ports:
       - "8443:8443"
+      - "9090:9090"
     environment:
-      RABBIT_URL: "amqp://guest:guest@rabbitmq:5672/"
+      RABBIT_URL: "amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/"
       TLS_CERT: "/certs/server.crt"
       TLS_KEY: "/certs/server.key"
-      API_KEYS: "service-key-auth-001,service-key-files-002"
-      HMAC_SECRET: "super-secret-hmac-key-change-in-production"
+      API_KEYS: ${COLLECTOR_API_KEYS}
+      HMAC_SECRET: ${COLLECTOR_HMAC_SECRET}
     volumes:
       - ./certs:/certs:ro
     depends_on:
@@ -57,9 +67,11 @@ services:
       dockerfile: Dockerfile
     container_name: secure_audit_processor
     restart: on-failure
+    ports:
+      - "9091:9091"
     environment:
-      RABBIT_URL: "amqp://guest:guest@rabbitmq:5672/"
-      POSTGRES_URL: "postgres://audit:auditpass@postgres:5432/auditdb?sslmode=disable"
+      RABBIT_URL: "amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/"
+      POSTGRES_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=require"
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -74,8 +86,9 @@ services:
     ports:
       - "8081:8081"
     environment:
-      POSTGRES_URL: "postgres://audit:auditpass@postgres:5432/auditdb?sslmode=disable"
+      POSTGRES_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=require"
       API_PORT: "8081"
+      JWT_SECRET: ${JWT_SECRET}
     depends_on:
       postgres:
         condition: service_healthy
@@ -84,13 +97,25 @@ services:
     image: dpage/pgadmin4
     container_name: secure_audit_pgadmin
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
-      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
     ports:
       - "5050:80"
     depends_on:
       postgres:
         condition: service_healthy
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: secure_audit_prometheus
+    ports:
+      - "9092:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - collector
+      - processor
 
   grafana:
     image: grafana/grafana:latest
@@ -98,16 +123,19 @@ services:
     ports:
       - "3000:3000"
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning
     depends_on:
       postgres:
         condition: service_healthy
+      prometheus:
+        condition: service_started
 
 volumes:
   postgres_data:
   rabbitmq_data:
   grafana_data:
+  prometheus_data:

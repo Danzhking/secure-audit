@@ -2,8 +2,10 @@ package service
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/Danzhking/secure-audit/services/processor/internal/detection"
+	"github.com/Danzhking/secure-audit/services/processor/internal/metrics"
 	"github.com/Danzhking/secure-audit/services/processor/internal/model"
 	"github.com/Danzhking/secure-audit/services/processor/internal/repository"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -24,10 +26,13 @@ func NewEventService(repo *repository.EventRepository, engine *detection.Engine)
 
 func (s *EventService) ProcessMessages(msgs <-chan amqp.Delivery) {
 	for msg := range msgs {
+		start := time.Now()
+
 		var event model.Event
 
 		if err := json.Unmarshal(msg.Body, &event); err != nil {
 			zap.L().Error("Failed to unmarshal message", zap.Error(err))
+			metrics.EventsProcessed.WithLabelValues("unmarshal_error").Inc()
 			msg.Nack(false, false)
 			continue
 		}
@@ -46,6 +51,7 @@ func (s *EventService) ProcessMessages(msgs <-chan amqp.Delivery) {
 
 		if err := s.repo.Save(event); err != nil {
 			zap.L().Error("Failed to save event", zap.Error(err))
+			metrics.EventsProcessed.WithLabelValues("save_error").Inc()
 			msg.Nack(false, true)
 			continue
 		}
@@ -53,6 +59,9 @@ func (s *EventService) ProcessMessages(msgs <-chan amqp.Delivery) {
 		s.engine.Analyze(event)
 
 		msg.Ack(false)
+		metrics.EventsProcessed.WithLabelValues("success").Inc()
+		metrics.ProcessingDuration.Observe(time.Since(start).Seconds())
+
 		zap.L().Info("Event saved",
 			zap.String("event_service", event.Service),
 			zap.String("event_type", event.EventType),
