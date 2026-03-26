@@ -17,7 +17,7 @@ func NewEventService(p *queue.Publisher) *EventService {
 }
 
 func (s *EventService) ProcessEvent(event model.Event) error {
-	zap.L().Info("Processing event",
+	zap.L().Info("Обработка события",
 		zap.String("event_type", event.EventType),
 		zap.String("event_service", event.Service),
 		zap.String("user_id", event.UserID),

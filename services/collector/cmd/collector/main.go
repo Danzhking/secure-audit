@@ -26,7 +26,7 @@ func main() {
 
 	publisher, err := queue.NewPublisher(conn)
 	if err != nil {
-		zap.L().Fatal("Failed to create publisher", zap.Error(err))
+		zap.L().Fatal("Не удалось создать издателя RabbitMQ", zap.Error(err))
 	}
 
 	eventService := service.NewEventService(publisher)
@@ -38,9 +38,9 @@ func main() {
 	go func() {
 		mux := http.NewServeMux()
 		mux.Handle("/metrics", promhttp.Handler())
-		zap.L().Info("Metrics server started", zap.String("port", ":9090"))
+		zap.L().Info("Сервер метрик запущен", zap.String("port", ":9090"))
 		if err := http.ListenAndServe(":9090", mux); err != nil {
-			zap.L().Error("Metrics server failed", zap.Error(err))
+			zap.L().Error("Сервер метрик завершился с ошибкой", zap.Error(err))
 		}
 	}()
 
@@ -54,15 +54,15 @@ func main() {
 	)
 
 	if cfg.TLSEnabled() {
-		zap.L().Info("Collector started with TLS",
+		zap.L().Info("Collector запущен с TLS",
 			zap.String("port", cfg.TLSPort),
 			zap.String("cert", cfg.TLSCert),
 		)
 		if err := r.RunTLS(cfg.TLSPort, cfg.TLSCert, cfg.TLSKey); err != nil {
-			zap.L().Fatal("Failed to start TLS server", zap.Error(err))
+			zap.L().Fatal("Не удалось запустить TLS-сервер", zap.Error(err))
 		}
 	} else {
-		zap.L().Info("Collector started (no TLS)", zap.String("port", cfg.Port))
+		zap.L().Info("Collector запущен без TLS", zap.String("port", cfg.Port))
 		r.Run(cfg.Port)
 	}
 }

@@ -28,12 +28,12 @@ func main() {
 
 	eventRepo := repository.NewEventRepository(db)
 	if err := eventRepo.Migrate(); err != nil {
-		zap.L().Fatal("Events migration failed", zap.Error(err))
+		zap.L().Fatal("Ошибка миграции таблицы событий", zap.Error(err))
 	}
 
 	alertRepo := repository.NewAlertRepository(db)
 	if err := alertRepo.Migrate(); err != nil {
-		zap.L().Fatal("Alerts migration failed", zap.Error(err))
+		zap.L().Fatal("Ошибка миграции таблицы оповещений", zap.Error(err))
 	}
 
 	engine := detection.NewEngine(
@@ -47,13 +47,13 @@ func main() {
 
 	consumer, err := queue.NewConsumer(conn)
 	if err != nil {
-		zap.L().Fatal("Failed to create consumer", zap.Error(err))
+		zap.L().Fatal("Не удалось создать потребителя RabbitMQ", zap.Error(err))
 	}
 	defer consumer.Close()
 
 	msgs, err := consumer.Consume()
 	if err != nil {
-		zap.L().Fatal("Failed to start consuming", zap.Error(err))
+		zap.L().Fatal("Не удалось начать потребление сообщений", zap.Error(err))
 	}
 
 	eventService := service.NewEventService(eventRepo, engine)
@@ -62,19 +62,19 @@ func main() {
 	go func() {
 		mux := http.NewServeMux()
 		mux.Handle("/metrics", promhttp.Handler())
-		zap.L().Info("Metrics server started", zap.String("port", ":9091"))
+		zap.L().Info("Сервер метрик запущен", zap.String("port", ":9091"))
 		if err := http.ListenAndServe(":9091", mux); err != nil {
-			zap.L().Error("Metrics server failed", zap.Error(err))
+			zap.L().Error("Сервер метрик завершился с ошибкой", zap.Error(err))
 		}
 	}()
 
 	go eventService.ProcessMessages(msgs)
 
-	zap.L().Info("Processor started, waiting for events")
+	zap.L().Info("Processor запущен, ожидание событий")
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
 
-	zap.L().Info("Processor shutting down")
+	zap.L().Info("Завершение работы Processor")
 }

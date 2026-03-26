@@ -12,7 +12,7 @@ func Init(serviceName string) {
 
 	zapLogger, err := cfg.Build()
 	if err != nil {
-		log.Fatal("Failed to initialize logger:", err)
+		log.Fatal("Не удалось инициализировать логгер:", err)
 	}
 
 	zapLogger = zapLogger.With(zap.String("service", serviceName))

@@ -57,7 +57,7 @@ func (h *EventHandler) List(c *gin.Context) {
 func (h *EventHandler) GetByID(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "некорректный идентификатор"})
 		return
 	}
 
@@ -67,7 +67,7 @@ func (h *EventHandler) GetByID(c *gin.Context) {
 		return
 	}
 	if event == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "event not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "событие не найдено"})
 		return
 	}
 

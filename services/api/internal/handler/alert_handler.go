@@ -57,7 +57,7 @@ type updateStatusRequest struct {
 func (h *AlertHandler) UpdateStatus(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "некорректный идентификатор"})
 		return
 	}
 
@@ -72,5 +72,5 @@ func (h *AlertHandler) UpdateStatus(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": "updated"})
+	c.JSON(http.StatusOK, gin.H{"status": "обновлено"})
 }

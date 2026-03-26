@@ -36,7 +36,7 @@ func (r *BruteForceRule) Check(event model.Event) (*model.Alert, error) {
 
 	count, err := r.counter.CountFailedLoginsByUser(event.UserID, r.WindowMinutes)
 	if err != nil {
-		return nil, fmt.Errorf("count failed logins: %w", err)
+		return nil, fmt.Errorf("подсчёт неудачных входов: %w", err)
 	}
 
 	if count < r.Threshold {
@@ -46,7 +46,7 @@ func (r *BruteForceRule) Check(event model.Event) (*model.Alert, error) {
 	return &model.Alert{
 		RuleName:   r.Name(),
 		Severity:   model.SeverityHigh,
-		Message:    fmt.Sprintf("Brute force detected: user '%s' has %d failed login attempts in %d minutes", event.UserID, count, r.WindowMinutes),
+		Message:    fmt.Sprintf("Обнаружен перебор пароля: пользователь '%s' — %d неудачных попыток входа за %d мин.", event.UserID, count, r.WindowMinutes),
 		UserID:     event.UserID,
 		IP:         event.IP,
 		EventCount: count,

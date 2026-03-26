@@ -32,7 +32,7 @@ func NewConsumer(conn *amqp.Connection) (*Consumer, error) {
 		return nil, err
 	}
 
-	zap.L().Info("Consumer queue declared", zap.String("queue", q.Name))
+	zap.L().Info("Очередь потребителя объявлена", zap.String("queue", q.Name))
 
 	return &Consumer{
 		channel: ch,
@@ -54,7 +54,7 @@ func (c *Consumer) Consume() (<-chan amqp.Delivery, error) {
 		return nil, err
 	}
 
-	zap.L().Info("Waiting for messages", zap.String("queue", c.queue.Name))
+	zap.L().Info("Ожидание сообщений", zap.String("queue", c.queue.Name))
 	return msgs, nil
 }
 

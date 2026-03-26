@@ -11,9 +11,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// HMACVerify validates the HMAC-SHA256 signature of the request body.
-// The client must compute HMAC-SHA256(body, secret) and send it
-// in the X-Signature header as a hex-encoded string.
+// HMACVerify проверяет HMAC-SHA256 подпись тела запроса.
+// Клиент вычисляет HMAC-SHA256(body, secret) и передаёт её
+// в заголовке X-Signature в виде hex-строки.
 func HMACVerify(secret string) gin.HandlerFunc {
 	secretBytes := []byte(secret)
 
@@ -21,7 +21,7 @@ func HMACVerify(secret string) gin.HandlerFunc {
 		signature := c.GetHeader("X-Signature")
 		if signature == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": "missing X-Signature header",
+				"error": "отсутствует заголовок X-Signature",
 			})
 			return
 		}
@@ -29,7 +29,7 @@ func HMACVerify(secret string) gin.HandlerFunc {
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-				"error": "failed to read request body",
+				"error": "не удалось прочитать тело запроса",
 			})
 			return
 		}
@@ -38,7 +38,7 @@ func HMACVerify(secret string) gin.HandlerFunc {
 		expectedSig, err := hex.DecodeString(signature)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-				"error": "invalid signature format (expected hex)",
+				"error": "неверный формат подписи (ожидается hex)",
 			})
 			return
 		}
@@ -49,7 +49,7 @@ func HMACVerify(secret string) gin.HandlerFunc {
 
 		if !hmac.Equal(computedSig, expectedSig) {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-				"error": "invalid HMAC signature",
+				"error": "неверная HMAC-подпись",
 			})
 			return
 		}

@@ -1,13 +1,13 @@
 # Secure Audit
 
-Distributed security event collection and analysis system (SIEM-lite).
+Распределённая система сбора и анализа событий безопасности (облегчённый SIEM).
 
-## Architecture
+## Архитектура
 
 ```
 ┌─────────────┐     HTTPS/TLS      ┌───────────┐    AMQP     ┌───────────┐
-│   Clients   │ ──────────────────> │ Collector │ ──────────> │ RabbitMQ  │
-│ (services)  │   API Key + HMAC   │  :8443    │             │  :5672    │
+│   Клиенты   │ ──────────────────> │ Collector │ ──────────> │ RabbitMQ  │
+│ (сервисы)   │   API Key + HMAC   │  :8443    │             │  :5672    │
 └─────────────┘                     └───────────┘             └─────┬─────┘
                                                                     │
                                                                     ▼
@@ -17,119 +17,119 @@ Distributed security event collection and analysis system (SIEM-lite).
 └─────────────┘                     └─────┬─────┘           └───────┬───────┘
                                           │                         │
 ┌─────────────┐        JWT                │                  ┌──────┴───────┐
-│  Analysts   │ ──────────────────> ┌─────┴─────┐           │  Detection   │
-│ (browsers)  │   Bearer token      │    API    │           │   Engine     │
+│  Аналитики  │ ──────────────────> ┌─────┴─────┐           │  Движок      │
+│ (браузеры)  │   Bearer token      │    API    │           │  обнаружения │
 └─────────────┘                     │  :8081    │           │ brute_force  │
                                     └───────────┘           │ suspicious_ip│
                                                             └──────────────┘
 ```
 
-## Components
+## Компоненты
 
-| Service    | Port  | Description                              |
-|------------|-------|------------------------------------------|
-| Collector  | 8443  | HTTPS ingestion with API Key, HMAC, Rate Limiting |
-| Processor  | -     | Consumes queue, stores events, runs detection rules |
-| API        | 8081  | REST API with JWT auth, audit logging     |
-| PostgreSQL | 5432  | Event and alert storage                   |
-| RabbitMQ   | 5672  | Message queue (management UI: 15672)      |
-| Grafana    | 3000  | Security dashboard with 10 panels         |
-| pgAdmin    | 5050  | Database management UI                    |
+| Сервис     | Порт  | Назначение |
+|------------|-------|------------|
+| Collector  | 8443  | Приём по HTTPS: API Key, HMAC, ограничение частоты |
+| Processor  | —     | Очередь → БД, правила обнаружения |
+| API        | 8081  | REST API: JWT, журнал аудита запросов |
+| PostgreSQL | 5432  | События и оповещения |
+| RabbitMQ   | 5672  | Очередь (веб-интерфейс: 15672) |
+| Grafana    | 3000  | Дашборд безопасности |
+| pgAdmin    | 5050  | Управление БД |
+| Prometheus | 9092  | Метрики (внешний порт; внутри контейнера 9090) |
 
-## Quick Start
+## Быстрый старт
 
 ```bash
-# 1. Clone the repository
+# 1. Клонировать репозиторий
 git clone https://github.com/Danzhking/secure-audit.git
 cd secure-audit
 
-# 2. Configure secrets
+# 2. Секреты
 cp .env.example .env
-# Edit .env and change all CHANGE_ME values
+# Отредактируйте .env — замените все CHANGE_ME
 
-# 3. Generate TLS certificates
+# 3. TLS-сертификаты для Collector
 docker run --rm -v $(pwd)/certs:/certs alpine/openssl \
   req -x509 -nodes -newkey rsa:2048 \
   -keyout /certs/server.key -out /certs/server.crt \
   -days 365 -subj "/C=RU/ST=Moscow/O=SecureAudit/CN=collector" \
   -addext "subjectAltName=DNS:collector,DNS:localhost,IP:127.0.0.1"
 
-# 4. Start the system
-docker compose up -d
+# 4. Запуск
+docker compose up -d --build
 
-# 5. Open Grafana
-# http://localhost:3000 (credentials from .env)
+# 5. Grafana: http://localhost:3000 (логин/пароль из .env)
 ```
 
-## API Authentication
+## Аутентификация API
 
 ```bash
-# Get JWT token
+# Получить JWT
 curl -X POST http://localhost:8081/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"admin"}'
 
-# Use token to query events
+# Запрос событий с токеном
 curl http://localhost:8081/api/events \
-  -H "Authorization: Bearer <token>"
+  -H "Authorization: Bearer <токен>"
 ```
 
-### API Endpoints
+### Эндпоинты API
 
-| Method | Endpoint           | Description                  |
-|--------|--------------------|------------------------------|
-| POST   | /auth/login        | Get JWT token                |
-| GET    | /api/events        | List events (filterable)     |
-| GET    | /api/events/:id    | Get event by ID              |
-| GET    | /api/alerts        | List alerts (filterable)     |
-| PATCH  | /api/alerts/:id    | Update alert status          |
-| GET    | /api/stats         | Aggregate statistics         |
+| Метод | Путь               | Описание |
+|-------|--------------------|----------|
+| POST  | /auth/login        | Выдача JWT |
+| GET   | /api/events        | Список событий (фильтры) |
+| GET   | /api/events/:id    | Событие по ID |
+| GET   | /api/alerts        | Список оповещений |
+| PATCH | /api/alerts/:id    | Статус оповещения |
+| GET   | /api/stats         | Агрегированная статистика |
 
-### Event Filters
+### Фильтры событий
 
 `service`, `event_type`, `severity`, `user_id`, `ip`, `from`, `to`, `page`, `page_size`
 
-## Collector Security Layers
+## Защита Collector
 
-1. **TLS** — All traffic encrypted (self-signed cert for dev, replace for production)
-2. **API Key** — Header `X-API-Key` must contain a valid key
-3. **HMAC-SHA256** — Header `X-Signature` must contain HMAC of request body
-4. **Rate Limiting** — Token Bucket algorithm (10 req/s, burst 20)
-5. **Input Validation** — Gin binding tags validate all fields
+1. **TLS** — шифрование канала (для разработки — самоподписанный сертификат).
+2. **API Key** — заголовок `X-API-Key` с действующим ключом.
+3. **HMAC-SHA256** — заголовок `X-Signature`: HMAC тела запроса в hex.
+4. **Rate limiting** — token bucket (10 запр/с, burst 20).
+5. **Валидация** — теги Gin `binding` (сообщения валидации от библиотеки могут быть на английском).
 
-## Detection Engine
+## Движок обнаружения
 
-The Processor runs detection rules on every incoming event:
+На каждое событие применяются правила:
 
-| Rule            | Trigger                                        | Severity |
-|-----------------|------------------------------------------------|----------|
-| brute_force     | 5+ failed logins by same user in 10 min        | high     |
-| suspicious_ip   | 3+ distinct users targeted by same IP in 5 min | critical |
+| Правило        | Условие | Важность |
+|----------------|---------|----------|
+| brute_force    | ≥5 неудачных входов одного пользователя за 10 мин | high |
+| suspicious_ip  | ≥3 разных пользователя с одного IP за 5 мин | critical |
 
-Alerts are deduplicated (same rule won't fire twice within 30 min window).
+Дедупликация оповещений: то же правило не срабатывает повторно в течение 30 минут.
 
-## Threat Model
+## Модель угроз
 
-### Threats this system protects against
+### От чего система защищает
 
-- **Brute force attacks** — Detected by analyzing failed login patterns per user; generates alerts when threshold is exceeded.
-- **Credential scanning** — Detected when a single IP targets multiple user accounts in a short time window.
-- **Unauthorized API access** — Collector requires API Key + HMAC; API requires JWT Bearer token.
-- **Data tampering in transit** — TLS encryption on Collector; HMAC signature verification ensures message integrity.
-- **Flood/DoS attacks** — Rate limiting on Collector prevents resource exhaustion.
-- **Unauthorized data access** — API audit trail logs every query with user identity, IP, and timestamp.
+- **Перебор паролей** — по порогу неудачных входов на пользователя.
+- **Сканирование учётных записей** — один IP бьёт по разным пользователям.
+- **Несанкционированный доступ к API** — Collector: ключ + HMAC; чтение данных: JWT.
+- **Искажение данных в канале** — TLS на Collector, целостность тела — HMAC.
+- **Флуд / DoS** — ограничение частоты на Collector.
+- **Несанкционированный просмотр** — аудит запросов к API (пользователь, IP, время).
 
-### Threats NOT covered (future work)
+### Что не покрыто (направления развития)
 
-- **Insider threats** — Users with valid credentials can access data within their role scope.
-- **Advanced persistent threats** — The detection engine uses simple threshold rules; ML-based anomaly detection is not implemented.
-- **Database tampering** — Records in PostgreSQL are not signed; an attacker with DB access could modify records without detection.
-- **Key compromise** — API keys and JWT secrets are static; rotation requires service restart.
-- **Network-level attacks within Docker** — Inter-service communication inside Docker network is unencrypted (no mTLS).
+- **Инсайдеры** — при валидных учётных данных доступ в рамках роли.
+- **APT** — только пороговые правила, без ML.
+- **Подделка записей в БД** — строки не подписываются отдельно.
+- **Компрометация ключей** — ротация без перезапуска не реализована.
+- **Сеть Docker** — между сервисами нет mTLS.
 
-## Certificate Generation
+## Сертификаты
 
-### Development (self-signed)
+### Разработка (самоподписанный)
 
 ```bash
 docker run --rm -v $(pwd)/certs:/certs alpine/openssl \
@@ -139,14 +139,21 @@ docker run --rm -v $(pwd)/certs:/certs alpine/openssl \
   -addext "subjectAltName=DNS:collector,DNS:localhost,IP:127.0.0.1"
 ```
 
-### Production
+### Продакшен
 
-Replace `certs/server.crt` and `certs/server.key` with certificates from a trusted CA (e.g., Let's Encrypt). Update `TLS_CERT` and `TLS_KEY` in `.env`.
+Замените `certs/server.crt` и `certs/server.key` на сертификаты доверенного УЦ. Укажите пути в `.env` (`TLS_CERT`, `TLS_KEY`).
 
-## Tech Stack
+## Стек
 
 - **Go** (Gin, Zap, amqp091-go)
-- **PostgreSQL 16** with JSONB metadata
-- **RabbitMQ 3** with management plugin
-- **Grafana** with PostgreSQL datasource
-- **Docker Compose** for orchestration
+- **PostgreSQL 16** + JSONB
+- **RabbitMQ 3** + плагин management
+- **Grafana**, **Prometheus**
+- **Docker Compose**
+
+## Тесты
+
+```bash
+cd services/processor && go test ./... -v
+cd ../api && go test ./... -v
+```

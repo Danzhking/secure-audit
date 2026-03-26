@@ -27,11 +27,11 @@ func NewPublisher(conn *amqp.Connection) (*Publisher, error) {
 		nil,
 	)
 	if err != nil {
-		zap.L().Error("Queue declare error", zap.Error(err))
+		zap.L().Error("Ошибка объявления очереди", zap.Error(err))
 		return nil, err
 	}
 
-	zap.L().Info("Queue declared", zap.String("queue", q.Name))
+	zap.L().Info("Очередь объявлена", zap.String("queue", q.Name))
 
 	return &Publisher{
 		channel: ch,
@@ -56,10 +56,10 @@ func (p *Publisher) Publish(event interface{}) error {
 		},
 	)
 	if err != nil {
-		zap.L().Error("RabbitMQ publish error", zap.Error(err))
+		zap.L().Error("Ошибка публикации в RabbitMQ", zap.Error(err))
 		return err
 	}
 
-	zap.L().Debug("Event published", zap.String("queue", p.queue.Name))
+	zap.L().Debug("Событие опубликовано", zap.String("queue", p.queue.Name))
 	return nil
 }

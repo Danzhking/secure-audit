@@ -14,16 +14,16 @@ func ConnectRabbitMQ(url string) *amqp.Connection {
 	for i := range 15 {
 		conn, err = amqp.Dial(url)
 		if err == nil {
-			zap.L().Info("RabbitMQ connected")
+			zap.L().Info("Подключение к RabbitMQ установлено")
 			return conn
 		}
-		zap.L().Warn("RabbitMQ not ready",
+		zap.L().Warn("RabbitMQ ещё не готов",
 			zap.Int("attempt", i+1),
 			zap.Error(err),
 		)
 		time.Sleep(3 * time.Second)
 	}
 
-	zap.L().Fatal("RabbitMQ connection failed after 15 attempts", zap.Error(err))
+	zap.L().Fatal("Не удалось подключиться к RabbitMQ после 15 попыток", zap.Error(err))
 	return nil
 }

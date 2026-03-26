@@ -44,7 +44,7 @@ func (r *EventRepository) Migrate() error {
 		return err
 	}
 
-	zap.L().Info("Database migration completed")
+	zap.L().Info("Миграция таблицы событий выполнена")
 	return nil
 }
 

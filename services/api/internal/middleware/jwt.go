@@ -23,7 +23,7 @@ func JWTAuth(secret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		header := c.GetHeader("Authorization")
 		if header == "" || !strings.HasPrefix(header, "Bearer ") {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing or invalid Authorization header"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "отсутствует или неверный заголовок Authorization"})
 			return
 		}
 
@@ -64,26 +64,26 @@ func GenerateToken(secret, sub, role string, ttl time.Duration) (string, error) 
 func validateToken(token, secret string) (*Claims, error) {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
-		return nil, errInvalid("malformed token")
+		return nil, errInvalid("некорректный формат токена")
 	}
 
 	expectedSig := sign(parts[0]+"."+parts[1], secret)
 	if !hmac.Equal([]byte(parts[2]), []byte(expectedSig)) {
-		return nil, errInvalid("invalid signature")
+		return nil, errInvalid("неверная подпись токена")
 	}
 
 	claimsJSON, err := base64.RawURLEncoding.DecodeString(parts[1])
 	if err != nil {
-		return nil, errInvalid("invalid payload encoding")
+		return nil, errInvalid("некорректная кодировка полезной нагрузки")
 	}
 
 	var claims Claims
 	if err := json.Unmarshal(claimsJSON, &claims); err != nil {
-		return nil, errInvalid("invalid payload")
+		return nil, errInvalid("некорректное содержимое токена")
 	}
 
 	if time.Now().Unix() > claims.Exp {
-		return nil, errInvalid("token expired")
+		return nil, errInvalid("срок действия токена истёк")
 	}
 
 	return &claims, nil

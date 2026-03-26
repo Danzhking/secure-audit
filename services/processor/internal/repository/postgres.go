@@ -16,17 +16,17 @@ func ConnectPostgres(url string) *sql.DB {
 		db, err = sql.Open("postgres", url)
 		if err == nil {
 			if pingErr := db.Ping(); pingErr == nil {
-				zap.L().Info("PostgreSQL connected")
+				zap.L().Info("Подключение к PostgreSQL установлено")
 				return db
 			}
 		}
-		zap.L().Warn("PostgreSQL not ready",
+		zap.L().Warn("PostgreSQL ещё не готов",
 			zap.Int("attempt", i+1),
 			zap.Error(err),
 		)
 		time.Sleep(2 * time.Second)
 	}
 
-	zap.L().Fatal("PostgreSQL connection failed after 10 attempts", zap.Error(err))
+	zap.L().Fatal("Не удалось подключиться к PostgreSQL после 10 попыток", zap.Error(err))
 	return nil
 }

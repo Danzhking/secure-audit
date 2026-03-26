@@ -35,7 +35,7 @@ func (h *EventHandler) CreateEvent(c *gin.Context) {
 	if err != nil {
 		metrics.EventsReceived.WithLabelValues("error").Inc()
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to process event",
+			"error": "не удалось обработать событие",
 		})
 		return
 	}
@@ -43,6 +43,6 @@ func (h *EventHandler) CreateEvent(c *gin.Context) {
 	metrics.EventsReceived.WithLabelValues("accepted").Inc()
 	metrics.EventsPublished.Inc()
 	c.JSON(http.StatusOK, gin.H{
-		"status": "event accepted",
+		"status": "событие принято",
 	})
 }

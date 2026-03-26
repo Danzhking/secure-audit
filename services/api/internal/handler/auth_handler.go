@@ -31,13 +31,13 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	role := authenticate(req.Username, req.Password)
 	if role == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "неверный логин или пароль"})
 		return
 	}
 
 	token, err := middleware.GenerateToken(h.jwtSecret, req.Username, role, 24*time.Hour)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate token"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "не удалось сформировать токен"})
 		return
 	}
 
@@ -48,7 +48,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 }
 
 func authenticate(username, password string) string {
-	// Hard-coded users for diploma demo; in production use a database
+	// Демо-пользователи для диплома; в продакшене — БД или внешний IdP
 	users := map[string]struct{ password, role string }{
 		"admin":    {"admin", "admin"},
 		"analyst":  {"analyst", "viewer"},

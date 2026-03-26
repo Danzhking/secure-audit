@@ -21,7 +21,7 @@ func NewEngine(alertRepo *repository.AlertRepository, rules ...Rule) *Engine {
 	for i, r := range rules {
 		names[i] = r.Name()
 	}
-	zap.L().Info("Detection engine initialized",
+	zap.L().Info("Движок обнаружения инициализирован",
 		zap.Int("rule_count", len(rules)),
 		zap.Strings("rules", names),
 	)
@@ -36,7 +36,7 @@ func (e *Engine) Analyze(event model.Event) {
 	for _, rule := range e.rules {
 		alert, err := rule.Check(event)
 		if err != nil {
-			zap.L().Error("Detection rule error",
+			zap.L().Error("Ошибка правила обнаружения",
 				zap.String("rule", rule.Name()),
 				zap.Error(err),
 			)
@@ -49,7 +49,7 @@ func (e *Engine) Analyze(event model.Event) {
 
 		exists, err := e.alertRepo.HasActiveAlert(alert.RuleName, alert.UserID, alert.IP)
 		if err != nil {
-			zap.L().Error("Failed to check existing alert", zap.Error(err))
+			zap.L().Error("Не удалось проверить существующее оповещение", zap.Error(err))
 			continue
 		}
 		if exists {
@@ -58,11 +58,11 @@ func (e *Engine) Analyze(event model.Event) {
 
 		id, err := e.alertRepo.Save(*alert)
 		if err != nil {
-			zap.L().Error("Failed to save alert", zap.Error(err))
+			zap.L().Error("Не удалось сохранить оповещение", zap.Error(err))
 			continue
 		}
 
-		zap.L().Warn("ALERT triggered",
+		zap.L().Warn("Сработало оповещение",
 			zap.Int64("alert_id", id),
 			zap.String("rule", alert.RuleName),
 			zap.String("severity", string(alert.Severity)),

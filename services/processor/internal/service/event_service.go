@@ -31,7 +31,7 @@ func (s *EventService) ProcessMessages(msgs <-chan amqp.Delivery) {
 		var event model.Event
 
 		if err := json.Unmarshal(msg.Body, &event); err != nil {
-			zap.L().Error("Failed to unmarshal message", zap.Error(err))
+			zap.L().Error("Не удалось разобрать сообщение", zap.Error(err))
 			metrics.EventsProcessed.WithLabelValues("unmarshal_error").Inc()
 			msg.Nack(false, false)
 			continue
@@ -41,7 +41,7 @@ func (s *EventService) ProcessMessages(msgs <-chan amqp.Delivery) {
 			event.Severity = model.SeverityLow
 		}
 
-		zap.L().Info("Processing event",
+		zap.L().Info("Обработка события",
 			zap.String("event_service", event.Service),
 			zap.String("event_type", event.EventType),
 			zap.String("severity", string(event.Severity)),
@@ -50,7 +50,7 @@ func (s *EventService) ProcessMessages(msgs <-chan amqp.Delivery) {
 		)
 
 		if err := s.repo.Save(event); err != nil {
-			zap.L().Error("Failed to save event", zap.Error(err))
+			zap.L().Error("Не удалось сохранить событие", zap.Error(err))
 			metrics.EventsProcessed.WithLabelValues("save_error").Inc()
 			msg.Nack(false, true)
 			continue
@@ -62,7 +62,7 @@ func (s *EventService) ProcessMessages(msgs <-chan amqp.Delivery) {
 		metrics.EventsProcessed.WithLabelValues("success").Inc()
 		metrics.ProcessingDuration.Observe(time.Since(start).Seconds())
 
-		zap.L().Info("Event saved",
+		zap.L().Info("Событие сохранено",
 			zap.String("event_service", event.Service),
 			zap.String("event_type", event.EventType),
 			zap.String("severity", string(event.Severity)),

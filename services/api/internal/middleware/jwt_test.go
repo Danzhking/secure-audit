@@ -34,8 +34,8 @@ func TestExpiredToken(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for expired token")
 	}
-	if err.Error() != "token expired" {
-		t.Errorf("expected 'token expired', got '%s'", err.Error())
+	if err.Error() != "срок действия токена истёк" {
+		t.Errorf("expected 'срок действия токена истёк', got '%s'", err.Error())
 	}
 }
 
@@ -45,8 +45,8 @@ func TestInvalidSignature(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for invalid signature")
 	}
-	if err.Error() != "invalid signature" {
-		t.Errorf("expected 'invalid signature', got '%s'", err.Error())
+	if err.Error() != "неверная подпись токена" {
+		t.Errorf("expected 'неверная подпись токена', got '%s'", err.Error())
 	}
 }
 

@@ -69,7 +69,7 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 		if !limiter.Allow() {
 			metrics.RateLimitRejected.Inc()
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
-				"error": "rate limit exceeded",
+				"error": "превышен лимит запросов",
 			})
 			return
 		}

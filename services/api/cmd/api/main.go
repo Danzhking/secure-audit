@@ -46,6 +46,6 @@ func main() {
 		api.GET("/stats", statsHandler.GetStats)
 	}
 
-	zap.L().Info("API service started", zap.String("port", cfg.Port))
+	zap.L().Info("Сервис API запущен", zap.String("port", cfg.Port))
 	r.Run(cfg.Port)
 }

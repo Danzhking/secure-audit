@@ -31,7 +31,7 @@ func (r *SuspiciousIPRule) Check(event model.Event) (*model.Alert, error) {
 
 	distinctUsers, err := r.counter.CountFailedLoginsByIP(event.IP, r.WindowMinutes)
 	if err != nil {
-		return nil, fmt.Errorf("count failed logins by IP: %w", err)
+		return nil, fmt.Errorf("подсчёт неудачных входов по IP: %w", err)
 	}
 
 	if distinctUsers < r.Threshold {
@@ -41,7 +41,7 @@ func (r *SuspiciousIPRule) Check(event model.Event) (*model.Alert, error) {
 	return &model.Alert{
 		RuleName:   r.Name(),
 		Severity:   model.SeverityCritical,
-		Message:    fmt.Sprintf("Credential scanning detected: IP '%s' targeted %d distinct users in %d minutes", event.IP, distinctUsers, r.WindowMinutes),
+		Message:    fmt.Sprintf("Обнаружено сканирование учётных записей: IP '%s' атаковал %d разных пользователей за %d мин.", event.IP, distinctUsers, r.WindowMinutes),
 		UserID:     "",
 		IP:         event.IP,
 		EventCount: distinctUsers,

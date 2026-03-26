@@ -43,7 +43,7 @@ func (r *AlertRepository) Migrate() error {
 		return err
 	}
 
-	zap.L().Info("Alerts migration completed")
+	zap.L().Info("Миграция таблицы оповещений выполнена")
 	return nil
 }
 

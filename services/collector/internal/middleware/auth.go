@@ -17,14 +17,14 @@ func APIKeyAuth(validKeys []string) gin.HandlerFunc {
 		key := c.GetHeader("X-API-Key")
 		if key == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": "missing X-API-Key header",
+				"error": "отсутствует заголовок X-API-Key",
 			})
 			return
 		}
 
 		if !constantTimeContains(validKeys, key) {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-				"error": "invalid API key",
+				"error": "недействительный API-ключ",
 			})
 			return
 		}
@@ -33,7 +33,7 @@ func APIKeyAuth(validKeys []string) gin.HandlerFunc {
 	}
 }
 
-// constantTimeContains prevents timing attacks by using constant-time comparison.
+// constantTimeContains сравнивает ключи за постоянное время (защита от timing-атак).
 func constantTimeContains(keys []string, candidate string) bool {
 	for _, k := range keys {
 		if subtle.ConstantTimeCompare([]byte(k), []byte(candidate)) == 1 {

@@ -16,7 +16,7 @@ func AuditLog() gin.HandlerFunc {
 		user, _ := c.Get("user")
 		role, _ := c.Get("role")
 
-		zap.L().Info("audit",
+		zap.L().Info("аудит_запроса",
 			zap.Any("user", user),
 			zap.Any("role", role),
 			zap.String("method", c.Request.Method),
