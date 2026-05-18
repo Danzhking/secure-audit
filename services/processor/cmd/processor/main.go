@@ -26,15 +26,12 @@ func main() {
 	db := repository.ConnectPostgres(cfg.PostgresURL)
 	defer db.Close()
 
-	eventRepo := repository.NewEventRepository(db)
-	if err := eventRepo.Migrate(); err != nil {
-		zap.L().Fatal("Ошибка миграции таблицы событий", zap.Error(err))
+	if err := repository.RunMigrations(db); err != nil {
+		zap.L().Fatal("Ошибка выполнения миграций", zap.Error(err))
 	}
 
+	eventRepo := repository.NewEventRepository(db)
 	alertRepo := repository.NewAlertRepository(db)
-	if err := alertRepo.Migrate(); err != nil {
-		zap.L().Fatal("Ошибка миграции таблицы оповещений", zap.Error(err))
-	}
 
 	engine := detection.NewEngine(
 		alertRepo,

@@ -1,22 +1,18 @@
 package middleware
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type Claims struct {
-	Sub  string `json:"sub"`
 	Role string `json:"role"`
-	Exp  int64  `json:"exp"`
-	Iat  int64  `json:"iat"`
+	jwt.RegisteredClaims
 }
 
 func JWTAuth(secret string) gin.HandlerFunc {
@@ -27,79 +23,46 @@ func JWTAuth(secret string) gin.HandlerFunc {
 			return
 		}
 
-		token := strings.TrimPrefix(header, "Bearer ")
-		claims, err := validateToken(token, secret)
+		tokenStr := strings.TrimPrefix(header, "Bearer ")
+		claims, err := validateToken(tokenStr, secret)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 			return
 		}
 
-		c.Set("user", claims.Sub)
+		c.Set("user", claims.Subject)
 		c.Set("role", claims.Role)
 		c.Next()
 	}
 }
 
 func GenerateToken(secret, sub, role string, ttl time.Duration) (string, error) {
-	now := time.Now()
 	claims := Claims{
-		Sub:  sub,
 		Role: role,
-		Exp:  now.Add(ttl).Unix(),
-		Iat:  now.Unix(),
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   sub,
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(ttl)),
+		},
 	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(secret))
+}
 
-	header := base64url([]byte(`{"alg":"HS256","typ":"JWT"}`))
-
-	claimsJSON, err := json.Marshal(claims)
+func validateToken(tokenStr, secret string) (*Claims, error) {
+	token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("неожиданный метод подписи")
+		}
+		return []byte(secret), nil
+	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	payload := base64url(claimsJSON)
 
-	sig := sign(header+"."+payload, secret)
-	return header + "." + payload + "." + sig, nil
+	claims, ok := token.Claims.(*Claims)
+	if !ok || !token.Valid {
+		return nil, jwt.ErrTokenInvalidClaims
+	}
+	return claims, nil
 }
-
-func validateToken(token, secret string) (*Claims, error) {
-	parts := strings.Split(token, ".")
-	if len(parts) != 3 {
-		return nil, errInvalid("некорректный формат токена")
-	}
-
-	expectedSig := sign(parts[0]+"."+parts[1], secret)
-	if !hmac.Equal([]byte(parts[2]), []byte(expectedSig)) {
-		return nil, errInvalid("неверная подпись токена")
-	}
-
-	claimsJSON, err := base64.RawURLEncoding.DecodeString(parts[1])
-	if err != nil {
-		return nil, errInvalid("некорректная кодировка полезной нагрузки")
-	}
-
-	var claims Claims
-	if err := json.Unmarshal(claimsJSON, &claims); err != nil {
-		return nil, errInvalid("некорректное содержимое токена")
-	}
-
-	if time.Now().Unix() > claims.Exp {
-		return nil, errInvalid("срок действия токена истёк")
-	}
-
-	return &claims, nil
-}
-
-func sign(data, secret string) string {
-	h := hmac.New(sha256.New, []byte(secret))
-	h.Write([]byte(data))
-	return base64url(h.Sum(nil))
-}
-
-func base64url(data []byte) string {
-	return base64.RawURLEncoding.EncodeToString(data)
-}
-
-type tokenError struct{ msg string }
-
-func (e *tokenError) Error() string  { return e.msg }
-func errInvalid(msg string) error    { return &tokenError{msg: msg} }

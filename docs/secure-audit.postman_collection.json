@@ -1,0 +1,528 @@
+{
+  "info": {
+    "_postman_id": "0e5a2c56-7371-49e1-854a-b3589e01db3b",
+    "name": "Secure Audit",
+    "description": "Коллекция для ручного и демонстрационного тестирования системы Secure Audit.\n\n**Переменные коллекции** (настроить под окружение):\n- `base_url`   — адрес Collector, напр. `https://localhost:8443`\n- `api_url`    — адрес API-сервиса, напр. `http://localhost:8081`\n- `api_key`    — действующий API-ключ из `COLLECTOR_API_KEYS` (.env)\n- `hmac_secret`— HMAC-секрет из `COLLECTOR_HMAC_SECRET` (.env)\n- `jwt_token`  — заполняется автоматически при выполнении «Тест 7»\n- `alert_id`   — ID алерта для PATCH-запроса (взять из списка оповещений)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://localhost:8443",
+      "type": "string"
+    },
+    {
+      "key": "api_url",
+      "value": "http://localhost:8081",
+      "type": "string"
+    },
+    {
+      "key": "api_key",
+      "value": "key-1",
+      "type": "string"
+    },
+    {
+      "key": "hmac_secret",
+      "value": "super-secret-hmac-key-change-in-production",
+      "type": "string"
+    },
+    {
+      "key": "jwt_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "alert_id",
+      "value": "1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Collector (8443)",
+      "description": "Тесты эндпоинта POST /events сервиса Collector.\nTLS включён — при самоподписанном сертификате отключите проверку SSL в настройках Postman.",
+      "item": [
+        {
+          "name": "Тест 1 — 401 без заголовков аутентификации",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"service\": \"auth-service\",\n  \"event_type\": \"login_success\",\n  \"severity\": \"low\",\n  \"user_id\": \"user1\",\n  \"ip\": \"192.168.1.1\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/events",
+              "host": ["{{base_url}}"],
+              "path": ["events"]
+            },
+            "description": "Ожидаемый ответ: 401 — нет заголовка X-API-Key."
+          },
+          "response": []
+        },
+        {
+          "name": "Тест 2 — 401 только API-ключ без HMAC",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" },
+              { "key": "X-API-Key", "value": "{{api_key}}", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"service\": \"auth-service\",\n  \"event_type\": \"login_success\",\n  \"severity\": \"low\",\n  \"user_id\": \"user1\",\n  \"ip\": \"192.168.1.1\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/events",
+              "host": ["{{base_url}}"],
+              "path": ["events"]
+            },
+            "description": "Ожидаемый ответ: 401 — X-API-Key верный, но заголовок X-Signature отсутствует."
+          },
+          "response": []
+        },
+        {
+          "name": "Тест 3 — 401 неверный API-ключ",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" },
+              { "key": "X-API-Key", "value": "wrong-key", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"service\": \"auth-service\",\n  \"event_type\": \"login_success\",\n  \"severity\": \"low\",\n  \"user_id\": \"user1\",\n  \"ip\": \"192.168.1.1\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/events",
+              "host": ["{{base_url}}"],
+              "path": ["events"]
+            },
+            "description": "Ожидаемый ответ: 401 — API-ключ не совпадает ни с одним из допустимых."
+          },
+          "response": []
+        },
+        {
+          "name": "Тест 4 — 401 верный API-ключ + неверный HMAC",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" },
+              { "key": "X-API-Key", "value": "{{api_key}}", "type": "text" },
+              { "key": "X-Signature", "value": "0000000000000000000000000000000000000000000000000000000000000000", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"service\": \"auth-service\",\n  \"event_type\": \"login_success\",\n  \"severity\": \"low\",\n  \"user_id\": \"user1\",\n  \"ip\": \"192.168.1.1\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/events",
+              "host": ["{{base_url}}"],
+              "path": ["events"]
+            },
+            "description": "Ожидаемый ответ: 401 — подпись не совпадает с HMAC-SHA256 тела запроса."
+          },
+          "response": []
+        },
+        {
+          "name": "Тест 5 — 202 корректный запрос",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const body = pm.request.body.raw;",
+                  "const secret = pm.collectionVariables.get('hmac_secret');",
+                  "const hash = CryptoJS.HmacSHA256(body, secret);",
+                  "const signature = hash.toString(CryptoJS.enc.Hex);",
+                  "pm.request.headers.upsert({ key: 'X-Signature', value: signature });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" },
+              { "key": "X-API-Key", "value": "{{api_key}}", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"service\": \"auth-service\",\n  \"event_type\": \"login_failed\",\n  \"severity\": \"high\",\n  \"user_id\": \"admin\",\n  \"ip\": \"192.168.1.100\",\n  \"metadata\": {\"reason\": \"wrong_password\"}\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/events",
+              "host": ["{{base_url}}"],
+              "path": ["events"]
+            },
+            "description": "Ожидаемый ответ: 202 — событие принято и отправлено в очередь."
+          },
+          "response": []
+        },
+        {
+          "name": "Тест 6 — 400 невалидные данные",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const body = pm.request.body.raw;",
+                  "const secret = pm.collectionVariables.get('hmac_secret');",
+                  "const hash = CryptoJS.HmacSHA256(body, secret);",
+                  "const signature = hash.toString(CryptoJS.enc.Hex);",
+                  "pm.request.headers.upsert({ key: 'X-Signature', value: signature });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" },
+              { "key": "X-API-Key", "value": "{{api_key}}", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event_type\": \"login_failed\",\n  \"severity\": \"INVALID\",\n  \"ip\": \"not-an-ip\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/events",
+              "host": ["{{base_url}}"],
+              "path": ["events"]
+            },
+            "description": "Ожидаемый ответ: 400 — пропущено обязательное поле `service`, невалидный `severity` и `ip`."
+          },
+          "response": []
+        },
+        {
+          "name": "Демонстрация brute_force (повторить ≥5 раз)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const body = pm.request.body.raw;",
+                  "const secret = pm.collectionVariables.get('hmac_secret');",
+                  "const hash = CryptoJS.HmacSHA256(body, secret);",
+                  "const signature = hash.toString(CryptoJS.enc.Hex);",
+                  "pm.request.headers.upsert({ key: 'X-Signature', value: signature });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" },
+              { "key": "X-API-Key", "value": "{{api_key}}", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"service\": \"auth-service\",\n  \"event_type\": \"login_failed\",\n  \"severity\": \"high\",\n  \"user_id\": \"admin\",\n  \"ip\": \"192.168.1.100\",\n  \"metadata\": {\"reason\": \"wrong_password\", \"attempt\": 1}\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/events",
+              "host": ["{{base_url}}"],
+              "path": ["events"]
+            },
+            "description": "Отправить 5+ раз подряд — сработает правило `brute_force` (≥5 неудачных входов одного пользователя за 10 мин) → алерт severity=high."
+          },
+          "response": []
+        },
+        {
+          "name": "Демонстрация suspicious_ip (разные user_id, один IP)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const body = pm.request.body.raw;",
+                  "const secret = pm.collectionVariables.get('hmac_secret');",
+                  "const hash = CryptoJS.HmacSHA256(body, secret);",
+                  "const signature = hash.toString(CryptoJS.enc.Hex);",
+                  "pm.request.headers.upsert({ key: 'X-Signature', value: signature });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" },
+              { "key": "X-API-Key", "value": "{{api_key}}", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"service\": \"auth-service\",\n  \"event_type\": \"login_failed\",\n  \"severity\": \"high\",\n  \"user_id\": \"user3\",\n  \"ip\": \"10.0.0.55\",\n  \"metadata\": {}\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/events",
+              "host": ["{{base_url}}"],
+              "path": ["events"]
+            },
+            "description": "Отправить 3+ раз с разными `user_id` (user1, user2, user3…) и одним IP `10.0.0.55` — сработает правило `suspicious_ip` → алерт severity=critical."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "API — Аутентификация (8081)",
+      "description": "Эндпоинт POST /auth/login и проверка JWT-защиты.",
+      "item": [
+        {
+          "name": "Тест 7 — Получение JWT-токена",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const res = pm.response.json();",
+                  "    pm.collectionVariables.set('jwt_token', res.token);",
+                  "    console.log('JWT token saved. Expires in:', res.expires_in, 'sec');",
+                  "} else {",
+                  "    console.warn('Login failed:', pm.response.text());",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{api_url}}/auth/login",
+              "host": ["{{api_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Получить JWT. Токен автоматически сохраняется в переменную `jwt_token` и используется во всех последующих запросах.\n\nДоступные учётные данные:\n- admin / admin → role=admin\n- analyst / analyst → role=viewer\n- operator / operator → role=viewer\n\nОтвет: `{\"token\": \"...\", \"expires_in\": 86400}`"
+          },
+          "response": []
+        },
+        {
+          "name": "Тест 9 — 401 без токена",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/api/events",
+              "host": ["{{api_url}}"],
+              "path": ["api", "events"]
+            },
+            "description": "Ожидаемый ответ: 401 — заголовок Authorization отсутствует."
+          },
+          "response": []
+        },
+        {
+          "name": "Тест 10 — 401 неверный JWT",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer invalid.token.value", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{api_url}}/api/events",
+              "host": ["{{api_url}}"],
+              "path": ["api", "events"]
+            },
+            "description": "Ожидаемый ответ: 401 — токен не прошёл валидацию подписи."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "API — События",
+      "description": "Чтение событий безопасности. Требуется JWT-токен (сначала выполнить Тест 7).",
+      "item": [
+        {
+          "name": "Список событий (страница 1)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{jwt_token}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/api/events?page=1&page_size=10",
+              "host": ["{{api_url}}"],
+              "path": ["api", "events"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "10" }
+              ]
+            },
+            "description": "Список событий с пагинацией.\n\nДоступные фильтры: `service`, `event_type`, `severity`, `user_id`, `ip`, `from`, `to`, `page`, `page_size`."
+          },
+          "response": []
+        },
+        {
+          "name": "Список событий с фильтром severity=high",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{jwt_token}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/api/events?severity=high&page=1&page_size=20",
+              "host": ["{{api_url}}"],
+              "path": ["api", "events"],
+              "query": [
+                { "key": "severity", "value": "high" },
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "20" }
+              ]
+            },
+            "description": "Отфильтровать события с severity=high (например, неудачные входы)."
+          },
+          "response": []
+        },
+        {
+          "name": "Событие по ID",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{jwt_token}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/api/events/1",
+              "host": ["{{api_url}}"],
+              "path": ["api", "events", "1"]
+            },
+            "description": "Получить событие по его числовому ID. Замените `1` на нужный ID из списка."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "API — Оповещения",
+      "description": "Просмотр и обновление алертов движка обнаружения. Требуется JWT-токен.",
+      "item": [
+        {
+          "name": "Список оповещений",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{jwt_token}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/api/alerts?page=1&page_size=20",
+              "host": ["{{api_url}}"],
+              "path": ["api", "alerts"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "20" }
+              ]
+            },
+            "description": "Список всех алертов.\n\nДоступные фильтры: `rule_name`, `severity`, `status`, `user_id`, `ip`, `from`, `to`, `page`, `page_size`."
+          },
+          "response": []
+        },
+        {
+          "name": "Оповещения со статусом new",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{jwt_token}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/api/alerts?status=new&page=1&page_size=20",
+              "host": ["{{api_url}}"],
+              "path": ["api", "alerts"],
+              "query": [
+                { "key": "status", "value": "new" },
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "20" }
+              ]
+            },
+            "description": "Только необработанные оповещения (status=new)."
+          },
+          "response": []
+        },
+        {
+          "name": "Обновить статус оповещения",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{jwt_token}}", "type": "string" }]
+            },
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"acknowledged\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{api_url}}/api/alerts/{{alert_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["api", "alerts", "{{alert_id}}"]
+            },
+            "description": "Обновить статус алерта. Допустимые значения: `new`, `acknowledged`, `resolved`.\n\nУстановите переменную `alert_id` (ID из списка оповещений)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "API — Статистика",
+      "description": "Агрегированная статистика по событиям и алертам.",
+      "item": [
+        {
+          "name": "Общая статистика",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{jwt_token}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/api/stats",
+              "host": ["{{api_url}}"],
+              "path": ["api", "stats"]
+            },
+            "description": "Агрегированная статистика: количество событий и алертов по типам, severity и статусам."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

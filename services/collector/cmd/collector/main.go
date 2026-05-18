@@ -45,6 +45,7 @@ func main() {
 	}()
 
 	r := gin.Default()
+	r.SetTrustedProxies(nil)
 
 	r.POST("/events",
 		rateLimiter.Middleware(),

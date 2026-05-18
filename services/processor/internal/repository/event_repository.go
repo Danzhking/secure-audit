@@ -4,7 +4,6 @@ import (
 	"database/sql"
 
 	"github.com/Danzhking/secure-audit/services/processor/internal/model"
-	"go.uber.org/zap"
 )
 
 type EventRepository struct {
@@ -13,39 +12,6 @@ type EventRepository struct {
 
 func NewEventRepository(db *sql.DB) *EventRepository {
 	return &EventRepository{db: db}
-}
-
-func (r *EventRepository) Migrate() error {
-	query := `
-	CREATE TABLE IF NOT EXISTS security_events (
-		id          BIGSERIAL    PRIMARY KEY,
-		service     VARCHAR(255) NOT NULL,
-		event_type  VARCHAR(255) NOT NULL,
-		severity    VARCHAR(20)  NOT NULL DEFAULT 'low',
-		user_id     VARCHAR(255) NOT NULL DEFAULT '',
-		ip          VARCHAR(45)  NOT NULL DEFAULT '',
-		metadata    JSONB        DEFAULT '{}',
-		created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
-	);
-
-	ALTER TABLE security_events ADD COLUMN IF NOT EXISTS severity VARCHAR(20) NOT NULL DEFAULT 'low';
-	ALTER TABLE security_events ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}';
-
-	CREATE INDEX IF NOT EXISTS idx_security_events_service    ON security_events (service);
-	CREATE INDEX IF NOT EXISTS idx_security_events_event_type ON security_events (event_type);
-	CREATE INDEX IF NOT EXISTS idx_security_events_severity   ON security_events (severity);
-	CREATE INDEX IF NOT EXISTS idx_security_events_user_id    ON security_events (user_id);
-	CREATE INDEX IF NOT EXISTS idx_security_events_ip         ON security_events (ip);
-	CREATE INDEX IF NOT EXISTS idx_security_events_created_at ON security_events (created_at);
-	`
-
-	_, err := r.db.Exec(query)
-	if err != nil {
-		return err
-	}
-
-	zap.L().Info("Миграция таблицы событий выполнена")
-	return nil
 }
 
 func (r *EventRepository) Save(event model.Event) error {
