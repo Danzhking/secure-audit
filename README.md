@@ -2,6 +2,15 @@
 
 Распределённая система сбора и анализа событий безопасности (облегчённый SIEM).
 
+## Стек
+
+- **Go 1.25** (Gin, Zap, amqp091-go, golang-jwt/v5)
+- **PostgreSQL 16** + JSONB
+- **RabbitMQ 3** + плагин management
+- **golang-migrate** — автоматические SQL-миграции
+- **Grafana**, **Prometheus**
+- **Docker Compose**
+
 ## Архитектура
 
 ```
@@ -34,10 +43,12 @@
 | PostgreSQL | 5432          | События и оповещения |
 | RabbitMQ   | 5672, 15672   | Очередь (веб-интерфейс: 15672) |
 | Grafana    | 3000          | Дашборд безопасности |
-| pgAdmin    | 5050          | Управление БД |
+| pgAdmin    | 5300          | Управление БД |
 | Prometheus | 9092          | Метрики (внешний порт; внутри контейнера 9090) |
 
 ## Быстрый старт
+
+Единственное требование к машине — установленный **Docker** с Docker Compose. Go, PostgreSQL и RabbitMQ ставить не нужно — всё собирается и запускается в контейнерах.
 
 ```bash
 # 1. Клонировать репозиторий
@@ -48,12 +59,8 @@ cd secure-audit
 cp .env.example .env
 # Отредактируйте .env — замените все CHANGE_ME
 
-# 3. TLS-сертификаты для Collector
-docker run --rm -v $(pwd)/certs:/certs alpine/openssl \
-  req -x509 -nodes -newkey rsa:2048 \
-  -keyout /certs/server.key -out /certs/server.crt \
-  -days 365 -subj "/C=RU/ST=Moscow/O=SecureAudit/CN=collector" \
-  -addext "subjectAltName=DNS:collector,DNS:localhost,IP:127.0.0.1"
+# 3. TLS-сертификаты для Collector (одна строка; работает в bash, zsh и PowerShell)
+docker run --rm -v ${PWD}/certs:/certs alpine/openssl req -x509 -nodes -newkey rsa:2048 -keyout /certs/server.key -out /certs/server.crt -days 365 -subj "/C=RU/ST=Moscow/O=SecureAudit/CN=collector" -addext "subjectAltName=DNS:collector,DNS:localhost,IP:127.0.0.1"
 
 # 4. Запуск
 docker compose up -d --build
@@ -63,7 +70,23 @@ docker compose up -d --build
 
 Миграции БД выполняются **автоматически** при старте Processor.
 
-## Аутентификация API
+## Сертификаты
+
+### Разработка (самоподписанный)
+
+Одна строка; работает в bash, zsh и PowerShell:
+
+```bash
+docker run --rm -v ${PWD}/certs:/certs alpine/openssl req -x509 -nodes -newkey rsa:2048 -keyout /certs/server.key -out /certs/server.crt -days 365 -subj "/C=RU/ST=Moscow/O=SecureAudit/CN=collector" -addext "subjectAltName=DNS:collector,DNS:localhost,IP:127.0.0.1"
+```
+
+### Продакшен
+
+Замените `certs/server.crt` и `certs/server.key` на сертификаты доверенного УЦ. Укажите пути в `.env` (`TLS_CERT`, `TLS_KEY`).
+
+## Проверка работы
+
+### Через curl
 
 ```bash
 # Получить JWT
@@ -84,32 +107,24 @@ curl http://localhost:8081/api/events \
 | analyst  | analyst  | viewer |
 | operator | operator | viewer |
 
-JWT содержит поля `sub` (username) и `role`. Срок действия токена — 24 часа (HS256).
+### Postman-коллекция
 
-### Эндпоинты API
+Файл `docs/secure-audit.postman_collection.json` содержит готовые запросы для ручного тестирования.
 
-| Метод | Путь               | Описание |
-|-------|--------------------|----------|
-| POST  | /auth/login        | Выдача JWT |
-| GET   | /api/events        | Список событий (с фильтрами и пагинацией) |
-| GET   | /api/events/:id    | Событие по ID |
-| GET   | /api/alerts        | Список оповещений (с фильтрами и пагинацией) |
-| PATCH | /api/alerts/:id    | Обновление статуса оповещения |
-| GET   | /api/stats         | Агрегированная статистика |
+**Шаг 1.** Импортируйте коллекцию в Postman (File → Import).  
+**Шаг 2.** Откройте настройки коллекции → вкладка *Variables* и задайте значения:
 
-Все эндпоинты `/api/*` защищены JWT и логируют запросы через AuditLog middleware (пользователь, роль, IP, метод, статус, латенсия).
+| Переменная   | Значение по умолчанию                          | Откуда брать |
+|--------------|------------------------------------------------|--------------|
+| `base_url`   | `https://localhost:8443`                       | Collector    |
+| `api_url`    | `http://localhost:8081`                        | API-сервис   |
+| `api_key`    | `key-1`                                        | `.env` → `COLLECTOR_API_KEYS` |
+| `hmac_secret`| `super-secret-hmac-key-change-in-production`   | `.env` → `COLLECTOR_HMAC_SECRET` |
+| `jwt_token`  | *(заполняется автоматически)*                  | Тест 7 сохраняет токен при логине |
+| `alert_id`   | `1`                                            | ID из ответа на «Список оповещений» |
 
-### Фильтры событий
-
-`service`, `event_type`, `severity`, `user_id`, `ip`, `from`, `to`, `page`, `page_size`
-
-### Фильтры оповещений
-
-`rule_name`, `severity`, `status`, `user_id`, `ip`, `from`, `to`, `page`, `page_size`
-
-### Статусы оповещений
-
-`new` → `acknowledged` → `resolved`
+**Шаг 3.** При самоподписанном сертификате отключите SSL-проверку: *Settings → SSL certificate verification → Off*.  
+**Шаг 4.** Выполните **Тест 7** — токен JWT сохранится автоматически для всех последующих запросов.
 
 ## Защита Collector
 
@@ -149,43 +164,47 @@ JWT содержит поля `sub` (username) и `role`. Срок действ�
 - **Компрометация ключей** — ротация без перезапуска не реализована.
 - **Сеть Docker** — между сервисами нет mTLS.
 
-## Сертификаты
+## Справочник API
 
-### Разработка (самоподписанный)
+JWT содержит поля `sub` (username) и `role`. Срок действия токена — 24 часа (HS256). Все эндпоинты `/api/*` защищены JWT и логируют запросы через AuditLog middleware (пользователь, роль, IP, метод, статус, латенсия).
 
-```bash
-docker run --rm -v $(pwd)/certs:/certs alpine/openssl \
-  req -x509 -nodes -newkey rsa:2048 \
-  -keyout /certs/server.key -out /certs/server.crt \
-  -days 365 -subj "/C=RU/ST=Moscow/O=SecureAudit/CN=collector" \
-  -addext "subjectAltName=DNS:collector,DNS:localhost,IP:127.0.0.1"
-```
+### Эндпоинты
 
-### Продакшен
+| Метод | Путь               | Описание |
+|-------|--------------------|----------|
+| POST  | /auth/login        | Выдача JWT |
+| GET   | /api/events        | Список событий (с фильтрами и пагинацией) |
+| GET   | /api/events/:id    | Событие по ID |
+| GET   | /api/alerts        | Список оповещений (с фильтрами и пагинацией) |
+| PATCH | /api/alerts/:id    | Обновление статуса оповещения |
+| GET   | /api/stats         | Агрегированная статистика |
 
-Замените `certs/server.crt` и `certs/server.key` на сертификаты доверенного УЦ. Укажите пути в `.env` (`TLS_CERT`, `TLS_KEY`).
+### Фильтры событий
+
+`service`, `event_type`, `severity`, `user_id`, `ip`, `from`, `to`, `page`, `page_size`
+
+### Фильтры оповещений
+
+`rule_name`, `severity`, `status`, `user_id`, `ip`, `from`, `to`, `page`, `page_size`
+
+### Статусы оповещений
+
+`new` → `acknowledged` → `resolved`
 
 ## Миграции базы данных
 
 Processor использует [golang-migrate](https://github.com/golang-migrate/migrate) с SQL-файлами, встроенными в бинарник (`//go:embed`). Миграции запускаются автоматически при старте и создают таблицы `security_events` и `alerts` с полным набором индексов.
 
-Ручное управление:
-```bash
-# Откат последней миграции
-docker compose exec processor ./processor -rollback
-
-# Файлы миграций
+Каждая миграция имеет шаги `up` и `down`. Файлы миграций:
+```
 services/processor/internal/repository/migrations/
 ```
 
-## Стек
-
-- **Go 1.25** (Gin, Zap, amqp091-go, golang-jwt/v5)
-- **PostgreSQL 16** + JSONB
-- **RabbitMQ 3** + плагин management
-- **golang-migrate** — автоматические SQL-миграции
-- **Grafana**, **Prometheus**
-- **Docker Compose**
+Откат выполняется через CLI golang-migrate, например:
+```bash
+migrate -path services/processor/internal/repository/migrations \
+  -database "$POSTGRES_URL" down 1
+```
 
 ## Тесты
 
@@ -193,22 +212,3 @@ services/processor/internal/repository/migrations/
 cd services/processor && go test ./... -v
 cd ../api && go test ./... -v
 ```
-
-## Postman-коллекция
-
-Файл `docs/secure-audit.postman_collection.json` содержит готовые запросы для ручного тестирования.
-
-**Шаг 1.** Импортируйте коллекцию в Postman (File → Import).  
-**Шаг 2.** Откройте настройки коллекции → вкладка *Variables* и задайте значения:
-
-| Переменная   | Значение по умолчанию                          | Откуда брать |
-|--------------|------------------------------------------------|--------------|
-| `base_url`   | `https://localhost:8443`                       | Collector    |
-| `api_url`    | `http://localhost:8081`                        | API-сервис   |
-| `api_key`    | `key-1`                                        | `.env` → `COLLECTOR_API_KEYS` |
-| `hmac_secret`| `super-secret-hmac-key-change-in-production`   | `.env` → `COLLECTOR_HMAC_SECRET` |
-| `jwt_token`  | *(заполняется автоматически)*                  | Тест 7 сохраняет токен при логине |
-| `alert_id`   | `1`                                            | ID из ответа на «Список оповещений» |
-
-**Шаг 3.** При самоподписанном сертификате отключите SSL-проверку: *Settings → SSL certificate verification → Off*.  
-**Шаг 4.** Выполните **Тест 7** — токен JWT сохранится автоматически для всех последующих запросов.
