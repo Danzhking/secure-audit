@@ -49,7 +49,6 @@ services:
     restart: on-failure
     ports:
       - "8443:8443"
-      - "9090:9090"
     environment:
       RABBIT_URL: "amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/"
       TLS_CERT: "/certs/server.crt"
@@ -68,8 +67,6 @@ services:
       dockerfile: Dockerfile
     container_name: secure_audit_processor
     restart: on-failure
-    ports:
-      - "9091:9091"
     environment:
       RABBIT_URL: "amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/"
       POSTGRES_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=require"

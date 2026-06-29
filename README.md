@@ -2,6 +2,14 @@
 
 Распределённая система сбора и анализа событий безопасности (облегчённый SIEM).
 
+## Демонстрация
+
+Дашборд безопасности в Grafana (данные сгенерированы тестовым скриптом):
+
+![Обзор: события, алерты, динамика во времени](docs/screenshots/dashboard-overview.png)
+
+![Разбивка по типам, топ IP и сработавшие правила](docs/screenshots/dashboard-alerts.png)
+
 ## Стек
 
 - **Go 1.25** (Gin, Zap, amqp091-go, golang-jwt/v5)
@@ -194,11 +202,13 @@ JWT содержит поля `sub` (username) и `role`. Срок действ�
 Processor использует [golang-migrate](https://github.com/golang-migrate/migrate) с SQL-файлами, встроенными в бинарник (`//go:embed`). Миграции запускаются автоматически при старте и создают таблицы `security_events` и `alerts` с полным набором индексов.
 
 Каждая миграция имеет шаги `up` и `down`. Файлы миграций:
+
 ```
 services/processor/internal/repository/migrations/
 ```
 
 Откат выполняется через CLI golang-migrate, например:
+
 ```bash
 migrate -path services/processor/internal/repository/migrations \
   -database "$POSTGRES_URL" down 1
