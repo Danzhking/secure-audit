@@ -74,8 +74,6 @@ docker compose up -d --build
 
 ### Разработка (самоподписанный)
 
-Одна строка; работает в bash, zsh и PowerShell:
-
 ```bash
 docker run --rm -v ${PWD}/certs:/certs alpine/openssl req -x509 -nodes -newkey rsa:2048 -keyout /certs/server.key -out /certs/server.crt -days 365 -subj "/C=RU/ST=Moscow/O=SecureAudit/CN=collector" -addext "subjectAltName=DNS:collector,DNS:localhost,IP:127.0.0.1"
 ```
